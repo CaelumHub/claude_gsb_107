@@ -340,7 +340,6 @@ class ApiRouter:
         if route == "/tags" and method == "GET":
             tags = self.service.list_tags()
             for t in tags:
-                t["count"] += 1
                 t["tag"] = t.get("name")
             return 200, {"tags": tags}
         if route == "/tags" and method == "POST":

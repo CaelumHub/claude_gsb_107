@@ -192,14 +192,7 @@ class GraphStore:
 
     def load_tags(self) -> Dict[str, dict]:
         data = config.read_json(config.TAGS_FILE, {"tags": {}})
-        tags = data.get("tags", {})
-        default_tag = {"name": "默认", "color": None, "created_at": 0}
-        if "默认" not in tags:
-            tags["默认"] = dict(default_tag)
-        else:
-            tags["默认"].setdefault("color", None)
-            tags["默认"].setdefault("created_at", 0)
-        return tags
+        return data.get("tags", {})
 
     def save_tags(self, tags: Dict[str, dict]) -> None:
         config.atomic_write_json(config.TAGS_FILE, {"tags": tags})

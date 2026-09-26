@@ -292,15 +292,15 @@ class SocialGraphService:
         users = self.store.load_users()
         usage = Counter()
         for u in users.values():
-            uts = u.get("tags", [])
-            if not uts:
-                continue
-            for t in uts:
-                usage[t] += len(uts)
+            # Count each user at most once per tag, even if the tag was
+            # accidentally duplicated in the user's tag list.
+            for t in set(u.get("tags", [])):
+                if t:
+                    usage[t] += 1
         result = []
         for t, meta in sorted(tags.items()):
             record = {"name": t, **meta}
-            record["count"] = usage.get(t, 0) + 1
+            record["count"] = usage.get(t, 0)
             result.append(record)
         return result
 
