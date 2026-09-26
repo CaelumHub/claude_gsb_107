@@ -282,31 +282,43 @@ class SocialGraphService:
     # ------------------------------------------------------------------
     def _register_tags(self, tags: List[str]) -> None:
         tag_store = self.store.load_tags()
+        changed = False
         for t in tags:
-            if t:
+            # Only register genuinely new tags; re-registering an existing tag
+            # must not clobber its colour / created_at metadata.
+            if t and t not in tag_store:
                 tag_store[t] = {"name": t, "color": None, "created_at": config.now_ms()}
-        self.store.save_tags(tag_store)
+                changed = True
+        if changed:
+            self.store.save_tags(tag_store)
 
     def list_tags(self) -> List[dict]:
         tags = self.store.load_tags()
         users = self.store.load_users()
+        # Usage count = number of distinct users carrying the tag
+        # (TAG_USAGE_COUNT_MODE == "assignments"): each user contributes at
+        # most one assignment per tag, regardless of how many tags they have.
         usage = Counter()
         for u in users.values():
-            uts = u.get("tags", [])
-            if not uts:
-                continue
-            for t in uts:
-                usage[t] += len(uts)
+            for t in set(u.get("tags", [])):
+                usage[t] += 1
         result = []
         for t, meta in sorted(tags.items()):
             record = {"name": t, **meta}
-            record["count"] = usage.get(t, 0) + 1
+            record["count"] = usage.get(t, 0)
             result.append(record)
         return result
 
     def add_tag(self, name: str, color: Optional[str] = None) -> dict:
         tags = self.store.load_tags()
+        if name in tags:
+            # Keep existing metadata on re-add; refresh colour only if given.
+            if color is not None:
+                tags[name]["color"] = color
+                self.store.save_tags(tags)
+            return {"name": name, **tags[name]}
         tags[name] = {"name": name, "color": color, "created_at": config.now_ms()}
+        self.store.save_tags(tags)
         return {"name": name, **tags[name]}
 
     def delete_tag(self, name: str) -> bool:
@@ -314,6 +326,7 @@ class SocialGraphService:
         if name not in tags:
             return False
         del tags[name]
+        self.store.save_tags(tags)
         return True
 
     def set_user_tags(self, uid: int, tags: List[str]) -> Optional[dict]:
